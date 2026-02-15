@@ -24,5 +24,10 @@ export interface GenerateResponse {
   titles: GeneratedTitle[];
 }
 
+export interface ChatMessage {
+  role: 'user' | 'ai';
+  content: string;
+}
+
 export const XIAOHONGSHU_RED = '#FF2442';
 export const BG_GRAY = '#F7F8FA';

@@ -1,11 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { GenerateResponse } from "../types";
+import { GenerateResponse, GeneratedTitle, ChatMessage } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+const MODEL_NAME = "gemini-3-flash-preview";
+
 export const generateViralTitles = async (topic: string): Promise<GenerateResponse> => {
-  const model = "gemini-3-flash-preview";
-  
   const systemInstruction = `
 # 小红书爆款标题生成器
 
@@ -133,7 +133,7 @@ export const generateViralTitles = async (topic: string): Promise<GenerateRespon
 
   try {
     const response = await ai.models.generateContent({
-      model: model,
+      model: MODEL_NAME,
       contents: prompt,
       config: {
         systemInstruction: systemInstruction,
@@ -190,6 +190,40 @@ export const generateViralTitles = async (topic: string): Promise<GenerateRespon
 
   } catch (error) {
     console.error("Error generating titles:", error);
+    throw error;
+  }
+};
+
+export const refineTitle = async (
+  currentTitle: GeneratedTitle,
+  query: string,
+  history: ChatMessage[]
+): Promise<string> => {
+  const historyText = history.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n');
+  
+  const prompt = `
+    Context (Current Title Data): ${JSON.stringify(currentTitle)}
+    
+    Conversation History:
+    ${historyText}
+    
+    User Request: ${query}
+    
+    Instruction: You are an expert Xiaohongshu title consultant. The user wants to refine the current title or has a question about it.
+    Provide a concise, helpful response. 
+    If the user asks to change the title, provide the new title clearly in your response (e.g., "Here is a better version: ...").
+    Keep the tone professional yet encouraging.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+    });
+    
+    return response.text || "Sorry, I couldn't generate a response.";
+  } catch (error) {
+    console.error("Error refining title:", error);
     throw error;
   }
 };

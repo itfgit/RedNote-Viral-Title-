@@ -1,13 +1,33 @@
-import React from 'react';
-import { GeneratedTitle } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { GeneratedTitle, ChatMessage } from '../types';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { InfoIcon, SparklesIcon, ChevronRightIcon } from './Icons';
 
 interface AnalysisPanelProps {
   data: GeneratedTitle | null;
+  chatHistory: ChatMessage[];
+  onSendFollowUp: (query: string) => void;
+  isChatLoading: boolean;
 }
 
-const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ data }) => {
+const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ data, chatHistory, onSendFollowUp, isChatLoading }) => {
+  const [inputValue, setInputValue] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom of chat when history changes
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory, isChatLoading]);
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!inputValue.trim() || isChatLoading) return;
+    onSendFollowUp(inputValue);
+    setInputValue('');
+  };
+
   if (!data) {
     return (
       <div className="h-full bg-white border-l border-gray-200 p-8 flex flex-col items-center justify-center text-center">
@@ -41,13 +61,15 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ data }) => {
   };
 
   return (
-    <div className="h-full bg-white border-l border-gray-200 flex flex-col overflow-y-auto">
-      <div className="p-6 border-b border-gray-100">
+    <div className="h-full bg-white border-l border-gray-200 flex flex-col">
+      {/* Header */}
+      <div className="p-6 border-b border-gray-100 flex-shrink-0">
          <h2 className="text-lg font-bold text-gray-900 mb-1">深度分析</h2>
          <p className="text-xs text-gray-400">ID: {data.id}</p>
       </div>
 
-      <div className="p-6 space-y-8">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth">
         {/* Style & Core */}
         <div className="grid grid-cols-2 gap-4">
            <div className="bg-gray-50 p-4 rounded-xl">
@@ -119,21 +141,61 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ data }) => {
               </div>
            </div>
         </div>
-        
-        {/* Fake Follow-up Input */}
-        <div className="pt-4 border-t border-gray-100">
-             <div className="relative">
-                <input 
-                   type="text" 
-                   placeholder="Ask follow-up..." 
-                   className="w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 transition-shadow"
-                />
-                <button className="absolute right-2 top-1.5 p-1.5 bg-gray-200 text-gray-500 rounded-full hover:bg-[#FF2442] hover:text-white transition-colors">
-                   <ChevronRightIcon className="w-4 h-4" />
-                </button>
-             </div>
-        </div>
 
+        {/* Chat History */}
+        {chatHistory.length > 0 && (
+          <div className="border-t border-gray-100 pt-6">
+             <h3 className="text-sm font-bold text-gray-900 mb-4">跟进优化</h3>
+             <div className="space-y-4">
+               {chatHistory.map((msg, idx) => (
+                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                   <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                     msg.role === 'user' 
+                       ? 'bg-[#FF2442] text-white rounded-br-none' 
+                       : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                   }`}>
+                     {msg.content}
+                   </div>
+                 </div>
+               ))}
+               {isChatLoading && (
+                 <div className="flex justify-start">
+                   <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-none flex gap-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
+                   </div>
+                 </div>
+               )}
+               <div ref={chatEndRef}></div>
+             </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Footer / Input */}
+      <div className="p-4 bg-white border-t border-gray-100 flex-shrink-0">
+         <form onSubmit={handleSubmit} className="relative">
+            <input 
+               type="text" 
+               value={inputValue}
+               onChange={(e) => setInputValue(e.target.value)}
+               placeholder="Ask follow-up (e.g., 更短一点, 换个风格)..." 
+               disabled={isChatLoading}
+               className="w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#FF2442] focus:border-[#FF2442] transition-all disabled:opacity-50"
+            />
+            <button 
+              type="submit"
+              disabled={!inputValue.trim() || isChatLoading}
+              className={`absolute right-2 top-1.5 p-1.5 rounded-full transition-colors ${
+                !inputValue.trim() || isChatLoading 
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                  : 'bg-[#FF2442] text-white hover:bg-red-600'
+              }`}
+            >
+               <ChevronRightIcon className="w-4 h-4" />
+            </button>
+         </form>
       </div>
     </div>
   );

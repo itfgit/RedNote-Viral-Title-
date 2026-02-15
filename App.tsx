@@ -3,8 +3,8 @@ import { ArrowLeftIcon } from './components/Icons';
 import InputPanel from './components/InputPanel';
 import ResultList from './components/ResultList';
 import AnalysisPanel from './components/AnalysisPanel';
-import { GeneratedTitle } from './types';
-import { generateViralTitles } from './services/geminiService';
+import { GeneratedTitle, ChatMessage } from './types';
+import { generateViralTitles, refineTitle } from './services/geminiService';
 
 const App: React.FC = () => {
   const [input, setInput] = useState('');
@@ -12,19 +12,23 @@ const App: React.FC = () => {
   const [selectedTitleId, setSelectedTitleId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Chat history state: map title ID to list of messages
+  const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   const handleGenerate = async () => {
     if (!input.trim()) return;
     
     setIsLoading(true);
     setError(null);
-    setTitles([]); // Clear previous results while loading
+    setTitles([]); 
     setSelectedTitleId(null);
+    setChatHistories({}); // Clear old chats on new generation
 
     try {
       const response = await generateViralTitles(input);
       setTitles(response.titles);
-      // Auto select the first one if available
       if (response.titles.length > 0) {
         setSelectedTitleId(response.titles[0].id);
       }
@@ -36,7 +40,42 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSendFollowUp = async (query: string) => {
+    if (!selectedTitleId) return;
+    const currentTitle = titles.find(t => t.id === selectedTitleId);
+    if (!currentTitle) return;
+
+    // 1. Add user message
+    const newMessage: ChatMessage = { role: 'user', content: query };
+    const currentHistory = chatHistories[selectedTitleId] || [];
+    
+    setChatHistories(prev => ({
+      ...prev,
+      [selectedTitleId]: [...currentHistory, newMessage]
+    }));
+
+    setIsChatLoading(true);
+
+    try {
+      // 2. Call API
+      const responseText = await refineTitle(currentTitle, query, currentHistory);
+
+      // 3. Add AI response
+      const aiMessage: ChatMessage = { role: 'ai', content: responseText };
+      setChatHistories(prev => ({
+        ...prev,
+        [selectedTitleId]: [...prev[selectedTitleId], aiMessage]
+      }));
+    } catch (err) {
+      console.error(err);
+      // Optional: Add error message to chat
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
   const selectedTitle = titles.find(t => t.id === selectedTitleId) || null;
+  const currentChatHistory = selectedTitleId ? (chatHistories[selectedTitleId] || []) : [];
 
   return (
     <div className="h-screen w-full flex flex-col bg-[#F7F8FA] overflow-hidden">
@@ -80,8 +119,13 @@ const App: React.FC = () => {
         </section>
 
         {/* Right: Analysis */}
-        <section className="w-[35%] min-w-[360px] max-w-[480px] h-full flex-shrink-0 shadow-[-5px_0_15px_-5px_rgba(0,0,0,0.05)] z-10">
-          <AnalysisPanel data={selectedTitle} />
+        <section className="w-[35%] min-w-[360px] max-w-[480px] h-full flex-shrink-0 shadow-[-5px_0_15px_-5px_rgba(0,0,0,0.05)] z-10 bg-white">
+          <AnalysisPanel 
+            data={selectedTitle} 
+            chatHistory={currentChatHistory}
+            onSendFollowUp={handleSendFollowUp}
+            isChatLoading={isChatLoading}
+          />
         </section>
       </main>
 
