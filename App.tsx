@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { ArrowLeftIcon } from './components/Icons';
 import InputPanel from './components/InputPanel';
 import ResultList from './components/ResultList';
 import AnalysisPanel from './components/AnalysisPanel';
@@ -81,9 +80,6 @@ const App: React.FC = () => {
     <div className="h-screen w-full flex flex-col bg-[#F7F8FA] overflow-hidden">
       {/* Header */}
       <header className="h-16 bg-white border-b border-gray-200 flex items-center px-6 flex-shrink-0 z-10 shadow-sm">
-        <button className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
-          <ArrowLeftIcon className="w-5 h-5" />
-        </button>
         <h1 className="text-xl font-bold text-gray-900 tracking-tight">
           小红书爆款标题
         </h1>
